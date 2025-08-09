@@ -122,13 +122,21 @@ export default function Premium() {
 
             {/* Main headline - Apple's massive typography style */}
             <div className="space-y-8">
-              <h1 className="text-7xl md:text-9xl font-thin tracking-tight text-white leading-none" style={{fontFamily: 'SF Pro Display', fontWeight: 100}}>
-                Azadi Ke
-                <br />
-                <span className="bg-gradient-to-r from-orange-400 via-yellow-400 to-green-400 bg-clip-text text-transparent font-light">
-                  Kalakar
+              <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-6">
+                <h1 className="text-7xl md:text-9xl font-thin tracking-tight text-white leading-none text-center md:text-left" style={{fontFamily: 'SF Pro Display', fontWeight: 100}}>
+                  Azadi Ke
+                  <br />
+                  <span className="bg-gradient-to-r from-orange-400 via-yellow-400 to-green-400 bg-clip-text text-transparent font-light">
+                    Kalakar
+                  </span>
+                </h1>
+                <span
+                  className="inline-flex items-center px-5 py-2 rounded-full bg-white/5 border border-white/10 text-white/70 text-sm md:text-base whitespace-nowrap"
+                  style={{fontFamily: 'SF Pro Text'}}
+                >
+                  Powered by Shiksha Ke Sipahi Initiative
                 </span>
-              </h1>
+              </div>
               
               <p className="text-2xl md:text-3xl text-white/60 font-light max-w-4xl mx-auto leading-relaxed" style={{fontFamily: 'SF Pro Text'}}>
                 Express your vision of freedom through creativity.
