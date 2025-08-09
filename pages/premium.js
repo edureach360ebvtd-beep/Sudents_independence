@@ -17,6 +17,8 @@ export default function Premium() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [likedSubmissions, setLikedSubmissions] = useState(new Set());
   const [deviceId, setDeviceId] = useState('');
+  const [likingIds, setLikingIds] = useState(new Set());
+  const [likeInfo, setLikeInfo] = useState(null); // { message: string }
 
   // Helper: get or create a stable deviceId
   const getOrCreateDeviceId = () => {
@@ -117,6 +119,11 @@ export default function Premium() {
         // Already liked on this device
         return;
       }
+      if (likingIds.has(id)) {
+        // Prevent double clicks while request in-flight
+        return;
+      }
+      const nextLiking = new Set(likingIds); nextLiking.add(id); setLikingIds(nextLiking);
       // Ensure deviceId exists right now (handles very first click on fresh devices)
       let did = deviceId;
       if (!did || did.length < 8) {
@@ -131,21 +138,33 @@ export default function Premium() {
       const data = await resp.json();
       if (!resp.ok || data.error) {
         console.error('Like failed:', data.error || resp.statusText);
+        const cleared = new Set(likingIds); cleared.delete(id); setLikingIds(cleared);
         return;
       }
 
-      // Update liked set and persist
-      const newLiked = new Set(likedSubmissions);
-      newLiked.add(id);
-      setLikedSubmissions(newLiked);
-      try { if (typeof window !== 'undefined') localStorage.setItem('likedSubmissions', JSON.stringify(Array.from(newLiked))); } catch {}
+      // If already liked on server, reflect it locally and show toast
+      if (data.alreadyLiked) {
+        const newLiked = new Set(likedSubmissions); newLiked.add(id);
+        setLikedSubmissions(newLiked);
+        try { if (typeof window !== 'undefined') localStorage.setItem('likedSubmissions', JSON.stringify(Array.from(newLiked))); } catch {}
+        setLikeInfo({ message: 'You already liked this on this device.' });
+        setTimeout(() => setLikeInfo(null), 2500);
+      } else {
+        // Update liked set and persist
+        const newLiked = new Set(likedSubmissions);
+        newLiked.add(id);
+        setLikedSubmissions(newLiked);
+        try { if (typeof window !== 'undefined') localStorage.setItem('likedSubmissions', JSON.stringify(Array.from(newLiked))); } catch {}
 
-      // Update likes count in submissions list
-      if (typeof data.likes === 'number') {
-        setSubmissions(prev => prev.map(s => s.id === id ? { ...s, likes: data.likes } : s));
+        // Update likes count in submissions list
+        if (typeof data.likes === 'number') {
+          setSubmissions(prev => prev.map(s => s.id === id ? { ...s, likes: data.likes } : s));
+        }
       }
+      const cleared = new Set(likingIds); cleared.delete(id); setLikingIds(cleared);
     } catch (err) {
       console.error('Like error:', err);
+      const cleared = new Set(likingIds); cleared.delete(submission?.id); setLikingIds(cleared);
     }
   };
 
@@ -405,11 +424,12 @@ export default function Premium() {
                         </div>
                         <button
                           onClick={() => handleLike(submission)}
+                          disabled={likingIds.has(submission.id) || likedSubmissions.has(submission.id)}
                           className={`p-3 rounded-2xl transition-all duration-300 ${
                             likedSubmissions.has(submission.id)
                               ? 'bg-red-500/20 text-red-400'
                               : 'bg-white/5 text-white/40 hover:bg-white/10'
-                          }`}
+                          } ${likingIds.has(submission.id) ? 'opacity-50 pointer-events-none' : ''}`}
                         >
                           <div className="flex items-center space-x-2">
                             <svg className="w-5 h-5" fill={likedSubmissions.has(submission.id) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
@@ -463,6 +483,24 @@ export default function Premium() {
                 <div>
                   <p className="font-medium">Vision Published</p>
                   <p className="text-sm text-white/60">Added to the gallery</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Like Info Toast */}
+        {likeInfo && (
+          <div className="fixed top-28 left-1/2 transform -translate-x-1/2 z-50">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 text-white px-6 py-3 rounded-2xl shadow-2xl">
+              <div className="flex items-center space-x-3">
+                <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 16h-1v-4h-1m1-4h.01M12 18a6 6 0 110-12 6 6 0 010 12z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm">{likeInfo.message}</p>
                 </div>
               </div>
             </div>

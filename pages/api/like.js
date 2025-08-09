@@ -14,7 +14,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Supabase not configured' });
     }
 
-    // Ensure the submission exists and get current likes
+    // Ensure the submission exists and get current likes (used when already liked)
     const { data: sub, error: subErr } = await supabaseAdmin
       .from('submissions')
       .select('id, likes')
@@ -40,21 +40,38 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to record like' });
     }
 
-    // Increment likes count (simple read-then-write)
-    const newLikes = (sub.likes || 0) + 1;
-    const { data: updated, error: updErr } = await supabaseAdmin
-      .from('submissions')
-      .update({ likes: newLikes })
-      .eq('id', submissionId)
-      .select('likes')
-      .single();
+    // Try atomic increment via RPC function `increment_likes`
+    // SQL to create (run once in Supabase):
+    // create or replace function public.increment_likes(submission_uuid uuid)
+    // returns integer language sql as $$
+    //   update public.submissions set likes = coalesce(likes, 0) + 1
+    //   where id = submission_uuid returning likes;
+    // $$;
+    let updatedLikes = null;
+    const { data: rpcData, error: rpcErr } = await supabaseAdmin
+      .rpc('increment_likes', { submission_uuid: submissionId });
 
-    if (updErr) {
-      console.error('Like update error:', updErr);
-      return res.status(500).json({ error: 'Failed to update like count' });
+    if (rpcErr) {
+      // Fallback to read-then-write if RPC is not defined yet
+      const newLikes = (sub.likes || 0) + 1;
+      const { data: updated, error: updErr } = await supabaseAdmin
+        .from('submissions')
+        .update({ likes: newLikes })
+        .eq('id', submissionId)
+        .select('likes')
+        .single();
+
+      if (updErr) {
+        console.error('Like update error:', updErr);
+        return res.status(500).json({ error: 'Failed to update like count' });
+      }
+      updatedLikes = updated.likes;
+    } else {
+      // rpcData can be an array or scalar depending on PostgREST version
+      updatedLikes = Array.isArray(rpcData) ? rpcData[0] : rpcData;
     }
 
-    return res.status(200).json({ success: true, alreadyLiked: false, likes: updated.likes });
+    return res.status(200).json({ success: true, alreadyLiked: false, likes: updatedLikes });
   } catch (err) {
     console.error('Like API error:', err);
     return res.status(500).json({ error: 'Internal server error' });
