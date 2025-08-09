@@ -1,4 +1,4 @@
-import { put, list } from '@vercel/blob';
+import { supabaseAdmin } from '../../lib/supabase';
 import { nanoid } from 'nanoid';
 
 export default async function handler(req, res) {
@@ -18,12 +18,11 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Thought must be 25 words or less' });
     }
 
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) {
-      return res.status(500).json({ error: 'Blob token not configured' });
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(500).json({ error: 'Supabase not configured' });
     }
 
-    // Decode base64 image and upload to Vercel Blob
+    // Decode base64 image and upload to Supabase Storage
     const [meta, base64Data] = image.split(',');
     const mime = (meta || '').match(/data:(.*);base64/);
     const mimeType = mime ? mime[1] : 'image/png';
@@ -31,57 +30,48 @@ export default async function handler(req, res) {
     const fileName = `${nanoid()}.${ext}`;
 
     const imageBuffer = Buffer.from(base64Data, 'base64');
-    const upload = await put(`uploads/${fileName}`,
-      imageBuffer,
-      {
-        access: 'public',
+    
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      .from('uploads')
+      .upload(fileName, imageBuffer, {
         contentType: mimeType,
-        token,
-      }
-    );
-    const publicUrl = upload.url;
+        upsert: false
+      });
 
-    // Load existing submissions from Vercel Blob (data/submissions.json)
-    let existing = [];
-    let submissionsBlobUrl = '';
-    const listed = await list({ prefix: 'data/', token });
-    const subFile = listed.blobs.find(b => b.pathname === 'data/submissions.json');
-    if (subFile) {
-      submissionsBlobUrl = subFile.url;
-      try {
-        const resp = await fetch(submissionsBlobUrl);
-        const json = await resp.json();
-        existing = Array.isArray(json) ? json : [];
-      } catch {
-        existing = [];
-      }
+    if (uploadError) {
+      console.error('Upload error:', uploadError);
+      return res.status(500).json({ error: 'Failed to upload image' });
     }
 
-    // Create and persist submission
+    // Get public URL
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from('uploads')
+      .getPublicUrl(fileName);
+
+    // Create submission record in Supabase
     const submission = {
       id: nanoid(),
       name: name.trim(),
-      studentClass: studentClass.trim(),
+      student_class: studentClass.trim(),
       thought: thought.trim(),
-      imageUrl: publicUrl,
-      timestamp: new Date().toISOString(),
+      image_url: publicUrl,
       likes: 0,
     };
 
-    existing.push(submission);
-    // Write back to Blob (overwrite, no random suffix so path stays constant)
-    await put(
-      'data/submissions.json',
-      JSON.stringify(existing, null, 2),
-      {
-        access: 'public',
-        contentType: 'application/json',
-        addRandomSuffix: false,
-        token,
-      }
-    );
+    // Insert into Supabase table
+    const { data: insertData, error: insertError } = await supabaseAdmin
+      .from('submissions')
+      .insert([submission])
+      .select()
+      .single();
 
-    return res.status(200).json({ success: true, submissionId: submission.id, submission });
+    if (insertError) {
+      console.error('Insert error:', insertError);
+      return res.status(500).json({ error: 'Failed to save submission' });
+    }
+
+    return res.status(200).json({ success: true, submissionId: insertData.id, submission: insertData });
   } catch (error) {
     console.error('Submission error:', error);
     return res.status(500).json({ error: 'Internal server error' });

@@ -1,4 +1,4 @@
-import { list } from '@vercel/blob';
+import { supabaseAdmin } from '../../lib/supabase';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -6,34 +6,36 @@ export default async function handler(req, res) {
   }
 
   try {
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    // Graceful fallback: if no token, return empty list so UI doesn't break during setup
-    if (!token) {
-      return res.status(200).json({ success: true, submissions: [], count: 0, note: 'Blob token not configured' });
-    }
-    let items = [];
-    // List to find data/submissions.json (public blob)
-    const listed = await list({ prefix: 'data/', token });
-    const subFile = listed.blobs.find(b => b.pathname === 'data/submissions.json');
-    if (subFile) {
-      try {
-        // Cache-bust to always get the latest JSON
-        const resp = await fetch(`${subFile.url}?t=${Date.now()}`);
-        const json = await resp.json();
-        items = Array.isArray(json) ? json : [];
-      } catch {
-        items = [];
-      }
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(200).json({ success: true, submissions: [], count: 0, note: 'Supabase not configured' });
     }
 
-    const sortedSubmissions = items.sort((a, b) =>
-      new Date(b.timestamp) - new Date(a.timestamp)
-    );
+    // Fetch submissions from Supabase table
+    const { data: submissions, error } = await supabaseAdmin
+      .from('submissions')
+      .select('*')
+      .order('timestamp', { ascending: false });
+
+    if (error) {
+      console.error('Fetch error:', error);
+      return res.status(500).json({ error: 'Failed to fetch submissions' });
+    }
+
+    // Transform data to match frontend expectations
+    const transformedSubmissions = submissions.map(sub => ({
+      id: sub.id,
+      name: sub.name,
+      studentClass: sub.student_class,
+      thought: sub.thought,
+      imageUrl: sub.image_url,
+      timestamp: sub.timestamp,
+      likes: sub.likes || 0
+    }));
 
     return res.status(200).json({
       success: true,
-      submissions: sortedSubmissions,
-      count: sortedSubmissions.length,
+      submissions: transformedSubmissions,
+      count: transformedSubmissions.length,
     });
   } catch (error) {
     console.error('Error fetching submissions:', error);
