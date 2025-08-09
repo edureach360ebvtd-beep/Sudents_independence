@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Next.js build output
+.next/
+out/
+
+# Local env files
+.env*
+!.env.example
+
+# Vercel
+.vercel/
+
+# OS / Editor junk
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local uploads or data (avoid committing test artifacts)
+public/uploads/
+data/submissions.json
+
+# Coverage / tests
+coverage/
+
+# Misc
+*.swp
+*.swo
