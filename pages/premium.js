@@ -16,8 +16,26 @@ export default function Premium() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [likedSubmissions, setLikedSubmissions] = useState(new Set());
+  const [deviceId, setDeviceId] = useState('');
 
   useEffect(() => {
+    // Ensure a stable deviceId per browser
+    try {
+      const existing = typeof window !== 'undefined' ? localStorage.getItem('deviceId') : null;
+      if (existing) {
+        setDeviceId(existing);
+      } else {
+        const newId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        if (typeof window !== 'undefined') localStorage.setItem('deviceId', newId);
+        setDeviceId(newId);
+      }
+      // Load liked submissions set from localStorage
+      const liked = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('likedSubmissions') || '[]') : [];
+      setLikedSubmissions(new Set(liked));
+    } catch (e) {
+      // ignore storage errors
+    }
+
     fetchSubmissions();
     const interval = setInterval(fetchSubmissions, 5000);
     return () => clearInterval(interval);
@@ -82,14 +100,38 @@ export default function Premium() {
     }
   };
 
-  const handleLike = (index) => {
-    const newLiked = new Set(likedSubmissions);
-    if (newLiked.has(index)) {
-      newLiked.delete(index);
-    } else {
-      newLiked.add(index);
+  const handleLike = async (submission) => {
+    try {
+      if (!submission?.id) return;
+      const id = submission.id;
+      if (likedSubmissions.has(id)) {
+        // Already liked on this device
+        return;
+      }
+      const resp = await fetch('/api/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submissionId: id, deviceId })
+      });
+      const data = await resp.json();
+      if (!resp.ok || data.error) {
+        console.error('Like failed:', data.error || resp.statusText);
+        return;
+      }
+
+      // Update liked set and persist
+      const newLiked = new Set(likedSubmissions);
+      newLiked.add(id);
+      setLikedSubmissions(newLiked);
+      try { if (typeof window !== 'undefined') localStorage.setItem('likedSubmissions', JSON.stringify(Array.from(newLiked))); } catch {}
+
+      // Update likes count in submissions list
+      if (typeof data.likes === 'number') {
+        setSubmissions(prev => prev.map(s => s.id === id ? { ...s, likes: data.likes } : s));
+      }
+    } catch (err) {
+      console.error('Like error:', err);
     }
-    setLikedSubmissions(newLiked);
   };
 
   return (
@@ -329,8 +371,8 @@ export default function Premium() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {submissions.map((submission, index) => (
-                  <div key={index} className="group bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden hover:bg-white/10 transition-all duration-500 hover:-translate-y-2">
+                {submissions.map((submission) => (
+                  <div key={submission.id} className="group bg-white/5 backdrop-blur-xl rounded-3xl border border-white/10 overflow-hidden hover:bg-white/10 transition-all duration-500 hover:-translate-y-2">
                     <div className="aspect-[4/3] relative overflow-hidden">
                       <img 
                         src={submission.imageUrl} 
@@ -347,16 +389,19 @@ export default function Premium() {
                           <p className="text-sm text-white/60">Class {submission.studentClass}</p>
                         </div>
                         <button
-                          onClick={() => handleLike(index)}
+                          onClick={() => handleLike(submission)}
                           className={`p-3 rounded-2xl transition-all duration-300 ${
-                            likedSubmissions.has(index)
+                            likedSubmissions.has(submission.id)
                               ? 'bg-red-500/20 text-red-400'
                               : 'bg-white/5 text-white/40 hover:bg-white/10'
                           }`}
                         >
-                          <svg className="w-5 h-5" fill={likedSubmissions.has(index) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="flex items-center space-x-2">
+                            <svg className="w-5 h-5" fill={likedSubmissions.has(submission.id) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                          </svg>
+                            </svg>
+                            <span className="text-sm text-white/70">{submission.likes || 0}</span>
+                          </div>
                         </button>
                       </div>
                       <blockquote className="text-white/80 italic border-l-4 border-orange-400 pl-6" style={{fontFamily: 'SF Pro Text'}}>
