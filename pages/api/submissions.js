@@ -7,6 +7,10 @@ export default async function handler(req, res) {
 
   try {
     const token = process.env.BLOB_READ_WRITE_TOKEN;
+    // Graceful fallback: if no token, return empty list so UI doesn't break during setup
+    if (!token) {
+      return res.status(200).json({ success: true, submissions: [], count: 0, note: 'Blob token not configured' });
+    }
     let items = [];
     // List to find data/submissions.json (public blob)
     const listed = await list({ prefix: 'data/', token });
