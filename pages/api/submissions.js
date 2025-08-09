@@ -17,7 +17,8 @@ export default async function handler(req, res) {
     const subFile = listed.blobs.find(b => b.pathname === 'data/submissions.json');
     if (subFile) {
       try {
-        const resp = await fetch(subFile.url);
+        // Cache-bust to always get the latest JSON
+        const resp = await fetch(`${subFile.url}?t=${Date.now()}`);
         const json = await resp.json();
         items = Array.isArray(json) ? json : [];
       } catch {

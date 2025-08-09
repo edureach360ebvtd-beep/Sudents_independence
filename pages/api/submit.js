@@ -81,9 +81,18 @@ export default async function handler(req, res) {
       }
     );
 
-    return res.status(200).json({ success: true, submissionId: submission.id });
+    return res.status(200).json({ success: true, submissionId: submission.id, submission });
   } catch (error) {
     console.error('Submission error:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 }
+
+// Increase body size limit to support base64 images
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb',
+    },
+  },
+};
