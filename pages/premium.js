@@ -116,7 +116,9 @@ export default function Premium() {
       if (!submission?.id) return;
       const id = submission.id;
       if (likedSubmissions.has(id)) {
-        // Already liked on this device
+        // Already liked on this device (local)
+        setLikeInfo({ message: 'You already liked this on this device.' });
+        setTimeout(() => setLikeInfo(null), 2000);
         return;
       }
       if (likingIds.has(id)) {
