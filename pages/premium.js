@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export default function Premium() {
   const [formData, setFormData] = useState({
@@ -95,12 +98,9 @@ export default function Premium() {
         <title>Azadi Ke Kalakar | Independence Day 2025</title>
         <meta name="description" content="A premium platform for students to express their vision of freedom" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=SF+Pro+Display:wght@100;200;300;400;500;600;700;800;900&family=SF+Pro+Text:wght@100;200;300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
       </Head>
 
-      <div className="min-h-screen bg-black text-white overflow-x-hidden">
+      <div className={`min-h-screen bg-black text-white overflow-x-hidden ${inter.className}`}>
         {/* Apple-style animated gradient background */}
         <div className="fixed inset-0 opacity-30">
           <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 via-purple-500/20 to-green-500/20 animate-pulse"></div>
@@ -157,10 +157,14 @@ export default function Premium() {
             <div className="bg-white/5 backdrop-blur-2xl rounded-3xl border border-white/10 overflow-hidden shadow-2xl">
               <video
                 className="w-full h-auto"
+                autoPlay
+                muted
+                loop
+                playsInline
                 controls
                 preload="metadata"
               >
-                <source src="/video/azadi.mp4#t=0.1" type="video/mp4" />
+                <source src="/video/promo1.webm#t=0.1" type="video/webm" />
                 Your browser does not support the video tag.
               </video>
             </div>
