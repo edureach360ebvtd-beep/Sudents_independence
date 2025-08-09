@@ -1,5 +1,4 @@
 import { supabaseAdmin } from '../../lib/supabase';
-import { nanoid } from 'nanoid';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -27,7 +26,7 @@ export default async function handler(req, res) {
     const mime = (meta || '').match(/data:(.*);base64/);
     const mimeType = mime ? mime[1] : 'image/png';
     const ext = mimeType.split('/')[1] || 'png';
-    const fileName = `${nanoid()}.${ext}`;
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
     const imageBuffer = Buffer.from(base64Data, 'base64');
     
@@ -51,7 +50,6 @@ export default async function handler(req, res) {
 
     // Create submission record in Supabase
     const submission = {
-      id: nanoid(),
       name: name.trim(),
       student_class: studentClass.trim(),
       thought: thought.trim(),
