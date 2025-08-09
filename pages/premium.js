@@ -18,17 +18,26 @@ export default function Premium() {
   const [likedSubmissions, setLikedSubmissions] = useState(new Set());
   const [deviceId, setDeviceId] = useState('');
 
+  // Helper: get or create a stable deviceId
+  const getOrCreateDeviceId = () => {
+    try {
+      if (typeof window === 'undefined') return '';
+      let id = localStorage.getItem('deviceId');
+      if (!id || typeof id !== 'string' || id.length < 8) {
+        id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        localStorage.setItem('deviceId', id);
+      }
+      return id;
+    } catch (_) {
+      return '';
+    }
+  };
+
   useEffect(() => {
     // Ensure a stable deviceId per browser
     try {
-      const existing = typeof window !== 'undefined' ? localStorage.getItem('deviceId') : null;
-      if (existing) {
-        setDeviceId(existing);
-      } else {
-        const newId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        if (typeof window !== 'undefined') localStorage.setItem('deviceId', newId);
-        setDeviceId(newId);
-      }
+      const id = getOrCreateDeviceId();
+      if (id) setDeviceId(id);
       // Load liked submissions set from localStorage
       const liked = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('likedSubmissions') || '[]') : [];
       setLikedSubmissions(new Set(liked));
@@ -108,10 +117,16 @@ export default function Premium() {
         // Already liked on this device
         return;
       }
+      // Ensure deviceId exists right now (handles very first click on fresh devices)
+      let did = deviceId;
+      if (!did || did.length < 8) {
+        did = getOrCreateDeviceId();
+        setDeviceId(did);
+      }
       const resp = await fetch('/api/like', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ submissionId: id, deviceId })
+        body: JSON.stringify({ submissionId: id, deviceId: did })
       });
       const data = await resp.json();
       if (!resp.ok || data.error) {
