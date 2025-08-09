@@ -25,22 +25,19 @@ export default async function handler(req, res) {
       return res.status(404).json({ error: 'Submission not found' });
     }
 
-    // Attempt to insert like; ignore duplicates to enforce one-like-per-device
+    // Attempt to insert like. If unique violation (23505), it's already liked
     const { data: likeInsert, error: likeErr } = await supabaseAdmin
       .from('likes')
-      .insert({ submission_id: submissionId, device_id: deviceId }, { onConflict: 'submission_id,device_id', ignoreDuplicates: true })
+      .insert({ submission_id: submissionId, device_id: deviceId })
       .select();
 
     if (likeErr) {
+      // Unique violation => already liked on this device
+      if (likeErr.code === '23505') {
+        return res.status(200).json({ success: true, alreadyLiked: true, likes: sub.likes });
+      }
       console.error('Like insert error:', likeErr);
       return res.status(500).json({ error: 'Failed to record like' });
-    }
-
-    // If no row was inserted, the device already liked it
-    const alreadyLiked = !likeInsert || likeInsert.length === 0;
-
-    if (alreadyLiked) {
-      return res.status(200).json({ success: true, alreadyLiked: true, likes: sub.likes });
     }
 
     // Increment likes count (simple read-then-write)
