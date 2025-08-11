@@ -25,6 +25,10 @@ pnpm-debug.log*
 public/uploads/
 data/submissions.json
 
+# Supabase temp artifacts
+supabase/temp/
+supabase/**/temp/
+
 # Coverage / tests
 coverage/
 
