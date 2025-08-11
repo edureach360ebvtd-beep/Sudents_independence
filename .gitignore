@@ -32,3 +32,8 @@ coverage/
 *.swp
 *.swo
 .vercel
+ 
+# Local-only config and exports
+.npmrc
+data.sql
+schema.sql
